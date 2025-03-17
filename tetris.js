@@ -45,9 +45,9 @@ for(var i = 0; i < 24; i++){
 }
 
 function generatePiece(){
-    var piece_type = tileTypes[Math.floor(Math.random() * 4)];
+    var piece_type = tileTypes[Math.floor(Math.random() * 5)];
     var init_y = 23, init_x = 4;
-    var color = colorPalette[Math.floor(Math.random() * 5)];
+    var color = colorPalette[Math.floor(Math.random() * 6)];
     for(var i = 0; i < 4; i++){
         activeTiles[i] = [init_x - piece_type[i][1], init_y - piece_type[i][0], [piece_num, i], color];
     }
@@ -57,6 +57,15 @@ function generatePiece(){
 }
 
 function shiftPiece(dir){
+    for(var tile of activeTiles){
+        const newX = dir[0] + tile[0];
+        const newY = dir[1] + tile[1];
+        if(newX < 0 || newX > 9 || newX < 0 || newY > 23 || 
+            (gameBoard[newY][newX] != 0 && gameBoard[newY][newX][0][0] != tile[2][0])){
+            return;
+        }
+    }
+
     for(var i = 0; i < activeTiles.length; i++){
         // calculator.removeExpression({id: activeTiles[i][2]})
         gameBoard[activeTiles[i][1]][activeTiles[i][0]] = 0 // always remember that gameBoard corresponds to y and x respectivley while active tiles is the other way around :skull:
@@ -91,7 +100,19 @@ function checkForCollision(){
 }
 
 function checkForLineClear(){
-
+    var lineClears = [], rows = 0
+    gameBoard.forEach(function(row, idx){
+        var clearRow = true;
+        for(var tile of row){
+            if(tile == 0){
+                clearRow = false;
+                break;
+            }
+        }
+        if(clearRow){
+            lineClears[rows++] = idx;
+        }
+    });
 }
 
 function gameLoop(){
