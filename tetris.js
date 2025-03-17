@@ -100,7 +100,7 @@ function checkForCollision(){
 }
 
 function checkForLineClear(){
-    var lineClears = [], rows = 0
+    var lineClears = [];
     gameBoard.forEach(function(row, idx){
         var clearRow = true;
         for(var tile of row){
@@ -110,9 +110,33 @@ function checkForLineClear(){
             }
         }
         if(clearRow){
-            lineClears[rows++] = idx;
+            lineClears.push(idx);
+            for(var i = 0; i < 10; i++){
+                calculator.removeExpression({id: gameBoard[idx][i][0]});
+                gameBoard[idx][i] = 0;
+            }
         }
     });
+    lineClears.reverse();
+    var shift = 0;
+    for(var i = 0; i < 24; i++){
+        if(shift < lineClears.length && i == lineClears[shift]){
+            shift++;
+            continue;
+        }
+
+        for(var j = 0; j < 10; j++){
+            if(gameBoard[i][j] != 0){
+                let tmp = gameBoard[i][j];
+                gameBoard[i][j] = 0;
+                gameBoard[i-shift][j] = tmp;
+            }
+        }
+    }
+}
+
+function rotatePiece(){
+
 }
 
 function gameLoop(){
@@ -127,6 +151,7 @@ function gameLoop(){
         if(checkForCollision()){
             gameState = 'generate'
             checkForLineClear()
+            // window.close()
         }
     }
     requestAnimationFrame(gameLoop);
@@ -146,6 +171,10 @@ document.addEventListener('keydown', function(event) {
     if(event.keyCode == 39){
         event.preventDefault();
         shiftPiece([1, 0])
+        displayTiles()
+    }
+    if(event.keyCode == 38){
+        rotatePiece()
         displayTiles()
     }
 });
