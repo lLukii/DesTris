@@ -2,9 +2,10 @@ var elt = document.getElementById('calculator');
 var calculator = Desmos.Calculator(elt);
 
 var tileTypes = [[[0,0],[0,1],[1,0],[1,1]],
-    [[0,0],[0,1],[0,2],[0,3]],
+    [[0,0],[-1,0],[-1,-1],[1,0]],
+    [[0,0],[0,-1],[0,1],[0,2]],
     [[0,0],[0,-1],[1,0],[1,1]],
-    [[0,0],[0,1],[0,2],[1,2]],
+    [[0,0],[0,1],[0,-1],[1,1]],
     [[0,0],[0,1],[0,-1],[1,0]]]
 
 var colorPalette = ['#c74440', '#2d70b3', '#388c46', '#6042a6', '#fa7e19', '#000000']
@@ -12,8 +13,18 @@ var colorPalette = ['#c74440', '#2d70b3', '#388c46', '#6042a6', '#fa7e19', '#000
 var activeTiles = []
 var gameBoard = []
 var piece_num = 0
-var gameState = 'generate'
+var gameState = 'init'
 var gameOn = true
+var dropInterval = 0
+var numLines = 0
+
+for(var i = 0; i < 24; i++){
+    gameBoard[i] = [];
+    for(var j = 0; j < 10; j++){
+        gameBoard[i][j] = 0;
+    }
+}
+
 
 calculator.setExpression({
     id: 'b1',
@@ -36,24 +47,26 @@ calculator.setExpression({
     color: '#000000'
 })
 
-
-for(var i = 0; i < 24; i++){
-    gameBoard[i] = [];
-    for(var j = 0; j < 10; j++){
-        gameBoard[i][j] = 0;
+function resetGame(){
+    for(var i = 0; i < 24; i++){
+        for(var j = 0; j < 10; j++){
+            if(gameBoard[i][j] != 0){
+                calculator.removeExpression({id: gameBoard[i][j][0]})
+                gameBoard[i][j] = 0;
+            }
+        }
     }
+    activeTiles = []
 }
 
 function generatePiece(){
-    var piece_type = tileTypes[Math.floor(Math.random() * 5)];
-    var init_y = 23, init_x = 4;
+    var piece_type = tileTypes[Math.floor(Math.random() * 6)];
+    var init_y = 22, init_x = 4;
     var color = colorPalette[Math.floor(Math.random() * 6)];
     for(var i = 0; i < 4; i++){
-        activeTiles[i] = [init_x - piece_type[i][1], init_y - piece_type[i][0], [piece_num, i], color];
+        activeTiles[i] = [init_x - piece_type[i][1], init_y - piece_type[i][0], [piece_num, i], color, i == 0];
     }
-    if(checkForCollision()){
-        window.close()
-    }
+    return checkForCollision()
 }
 
 function shiftPiece(dir){
@@ -115,16 +128,14 @@ function checkForLineClear(){
                 calculator.removeExpression({id: gameBoard[idx][i][0]});
                 gameBoard[idx][i] = 0;
             }
+            numLines++;
         }
     });
-    lineClears.reverse();
     var shift = 0;
     for(var i = 0; i < 24; i++){
         if(shift < lineClears.length && i == lineClears[shift]){
             shift++;
-            continue;
         }
-
         for(var j = 0; j < 10; j++){
             if(gameBoard[i][j] != 0){
                 let tmp = gameBoard[i][j];
@@ -136,22 +147,71 @@ function checkForLineClear(){
 }
 
 function rotatePiece(){
-
+    var center_x = 0, center_y = 0;
+    var offsets = [], rotatePiece = []
+    var color = activeTiles[0][3]
+    for(let tile of activeTiles){
+        if(tile[4]){
+            center_x = tile[0];
+            center_y = tile[1];
+            break;
+        }
+    }
+    for(let tile of activeTiles){
+        offsets.push([center_y - tile[1], tile[0] - center_x])
+    }
+    var valid = true;
+    offsets.forEach(function(diff, idx){
+        const new_x = center_x + diff[0]
+        const new_y = center_y + diff[1]
+        if(new_x > 9 || new_x < 0 || new_y > 23 || new_y < 0 || (gameBoard[new_y][new_x] != 0 && gameBoard[new_y][new_x][0][0] != piece_num)){
+            valid = false;
+            return;
+        }
+        rotatePiece.push([new_x, new_y, [piece_num, idx], color, diff[0] == 0 && diff[1] == 0])
+    })
+    if(!valid) return;
+    for(let tile of activeTiles) gameBoard[tile[1]][tile[0]] = 0
+    activeTiles = Array.from(rotatePiece)
+    // document.getElementById("index").innerHTML = rotatePiece;
 }
 
+/*
+DEBUGGING CODE
+*/
+// generatePiece()
+// displayTiles()
+// for(var i = 0; i < 4; i++){
+//     shiftPiece([0, -1])
+//     displayTiles()
+// }
+// console.log(gameBoard)
+// rotatePiece()
+// displayTiles()
+// console.log(gameBoard)
+
+
 function gameLoop(){
-    if(gameState == 'generate'){
+    if(gameState == 'init'){
+        resetGame()
+        gameState = 'generate'
+    }
+    else if(gameState == 'generate'){
         piece_num++;
         activeTiles = []
-        generatePiece()
+        var reset = generatePiece()
+        gameState = reset ? 'init' : 'Falling'
         displayTiles()
-        gameState = 'Falling'; 
     }
-    if(gameState == 'Falling'){
+    else if(gameState == 'Falling'){
         if(checkForCollision()){
             gameState = 'generate'
             checkForLineClear()
-            // window.close()
+        }
+        dropInterval = (dropInterval + 1) % (50 - Math.min(5 * Math.floor(numLines / 10), 49))
+        if(dropInterval == 0){
+            shiftPiece([0, -1])
+            displayTiles()
         }
     }
     requestAnimationFrame(gameLoop);
@@ -174,6 +234,7 @@ document.addEventListener('keydown', function(event) {
         displayTiles()
     }
     if(event.keyCode == 38){
+        event.preventDefault();
         rotatePiece()
         displayTiles()
     }
