@@ -12,11 +12,13 @@ var colorPalette = ['#c74440', '#2d70b3', '#388c46', '#6042a6', '#fa7e19', '#000
 
 var activeTiles = []
 var gameBoard = []
+var lineClearScore = [0, 40, 100, 300, 1200]
 var piece_num = 0
 var gameState = 'init'
 var gameOn = true
 var dropInterval = 0
 var numLines = 0
+var score = 0
 
 for(var i = 0; i < 24; i++){
     gameBoard[i] = [];
@@ -48,6 +50,7 @@ calculator.setExpression({
 })
 
 function resetGame(){
+    numLines = 0; dropInterval = 0; score = 0;
     for(var i = 0; i < 24; i++){
         for(var j = 0; j < 10; j++){
             if(gameBoard[i][j] != 0){
@@ -113,7 +116,7 @@ function checkForCollision(){
 }
 
 function checkForLineClear(){
-    var lineClears = [];
+    var lineClears = [], cnt = 0;
     gameBoard.forEach(function(row, idx){
         var clearRow = true;
         for(var tile of row){
@@ -128,13 +131,15 @@ function checkForLineClear(){
                 calculator.removeExpression({id: gameBoard[idx][i][0]});
                 gameBoard[idx][i] = 0;
             }
-            numLines++;
+            cnt++;
         }
     });
+    numLines += cnt;
     var shift = 0;
     for(var i = 0; i < 24; i++){
         if(shift < lineClears.length && i == lineClears[shift]){
             shift++;
+            continue;
         }
         for(var j = 0; j < 10; j++){
             if(gameBoard[i][j] != 0){
@@ -144,6 +149,7 @@ function checkForLineClear(){
             }
         }
     }
+    return cnt;
 }
 
 function rotatePiece(){
@@ -192,6 +198,12 @@ DEBUGGING CODE
 
 
 function gameLoop(){
+    calculator.setExpression({
+        id: 'INFO',
+        latex: "(20, 15)",
+        showLabel: true,
+        label: 'Line Clears: ' + numLines + '\nLevel: ' + Math.floor(numLines / 10) + '\nScore: ' + score
+    })
     if(gameState == 'init'){
         resetGame()
         gameState = 'generate'
@@ -206,9 +218,9 @@ function gameLoop(){
     else if(gameState == 'Falling'){
         if(checkForCollision()){
             gameState = 'generate'
-            checkForLineClear()
+            score += (Math.floor(numLines / 10)+1) * lineClearScore[checkForLineClear()]
         }
-        dropInterval = (dropInterval + 1) % (50 - Math.min(5 * Math.floor(numLines / 10), 49))
+        dropInterval = (dropInterval + 1) % (50 - Math.min(5 * Math.floor(numLines / 10), 48))
         if(dropInterval == 0){
             shiftPiece([0, -1])
             displayTiles()
